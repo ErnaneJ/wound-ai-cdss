@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  streamlit:
+    build: ./streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - BUCKET_PATH=/app/bucket
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./streamlit:/app
+      - ./backend:/app/backend
+      - ./bucket:/app/bucket
+    networks:
+      - app-network
+
+  worker:
+    build: ./worker
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - BUCKET_PATH=/app/bucket
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./worker/app:/app/app
+      - ./backend:/app/backend
+      - ./bucket:/app/bucket
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

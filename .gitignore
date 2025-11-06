@@ -1,0 +1,4 @@
+bucket/images/*
+bucket/reports/*
+.env
+__pycache__
