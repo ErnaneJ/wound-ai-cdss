@@ -1,3 +1,23 @@
+import streamlit as st
+from datetime import datetime
+import os
+import sys
+import pandas as pd
+import time
+
+if '/app/backend' not in sys.path:
+    sys.path.append('/app/backend')
+
+from backend.database_operations import (
+    create_paciente_with_chat, 
+    search_pacientes, 
+    get_paciente_with_chat,
+    get_chat_status,
+    get_db,
+    classify_all_images_in_chat
+)
+from backend.models import Chat, ChatMessage
+
 import base64
 import streamlit as st
 from datetime import datetime
@@ -6,14 +26,12 @@ import sys
 import pandas as pd
 import time
 
-sys.path.append('/app/backend')
-
 from backend.database_operations import (
     create_paciente_with_chat, 
     search_pacientes, 
     get_paciente_with_chat,
     get_chat_status,
-    get_chat_images,
+    add_images_to_chat,
     get_db
 )
 from backend.models import Chat, ChatMessage
@@ -71,8 +89,8 @@ def show_patient_form():
             camera_image = cameraInput.camera_input("Câmera Integrada", width=1080)
             
         col1, col2 = st.columns(2)
-        cancel_submitted = col1.form_submit_button("❌ Cancelar", use_container_width=True)
-        submitted = col2.form_submit_button("💾 Salvar Paciente e Processar Análise", use_container_width=True)
+        cancel_submitted = col1.form_submit_button("❌ Cancelar", width='stretch')
+        submitted = col2.form_submit_button("💾 Salvar Paciente e Processar Análise", width='stretch')
         
         if cancel_submitted:
             st.session_state.show_form = False
@@ -130,124 +148,153 @@ def show_patient_form():
 
 def show_chat_view(patient_id):
     """Mostra a view do chat para um paciente específico"""
-    try:
-        db = next(get_db())
-        paciente_data = get_paciente_with_chat(db, patient_id)
-        
-        if not paciente_data:
-            st.error("Paciente não encontrado")
-            return
-        
-        paciente = paciente_data['paciente']
-        chat = paciente_data['chat']
-        images = paciente_data['images']
+    db = next(get_db())
+    paciente_data = get_paciente_with_chat(db, patient_id)
+    
+    if not paciente_data:
+        st.error("Paciente não encontrado")
+        return
+    
+    paciente = paciente_data['paciente']
+    chat = paciente_data['chat']
+    images = paciente_data['images']
 
-        with st.sidebar:
-            st.subheader(f"💬 Chat {paciente.nome}")
-            if st.button("👈🏼 Voltar", use_container_width=True):
-                # Remove o patient_id da query string
-                st.query_params.clear()
-                st.rerun()
-            
-            if st.button("📊 Relatório", type="primary", use_container_width=True):
-                st.info("📋 Funcionalidade de relatório em desenvolvimento")
-
-            st.divider()
-
-            with st.expander("👤 Informações do Paciente", expanded=True):
-                st.write("#### 📋 Dados Pessoais")
-                st.write(f"""
-                        - **Nome:** {paciente.nome}
-                        - **Documento:** {paciente.documento if paciente.documento else "*Não informado*"}
-                        - **Idade:** {paciente.idade} anos
-                        - **Sexo:** {paciente.sexo}
-                        - **Diabetes:** {paciente.diabetes_tipo}
-                        """)
-                st.write("#### 🗄️ Histórico Médico")
-                if paciente.historico_medico:
-                    st.write(f"{(paciente.historico_medico[:500]).strip()}..." if len(paciente.historico_medico) > 500 else paciente.historico_medico)
-                else:
-                    st.write("*Não informado*")
-
-                st.write("#### 💊 Medicamentos & Alergias")
-                if paciente.medicamentos:
-                    st.write(f"- **Medicamentos:** {paciente.medicamentos}")
-                if paciente.alergias:
-                    st.write(f"- **Alergias:** {paciente.alergias}")
-            
-            with st.expander("📸 Lesões", expanded=False):
-                if images:
-                    cols = st.columns(2)
-                    for idx, img in enumerate(images):
-                        col_idx = idx % 2
-                        status_emoji = "✅" if img.classification != "Pendente" else "⏳"
-                        
-                        with cols[col_idx]:
-                            try:
-                                if os.path.exists(img.image_path):
-                                    from PIL import Image as PILImage
-                                    pil_image = PILImage.open(img.image_path)
-                                    
-                                    st.image(
-                                        pil_image,
-                                        caption=f"{status_emoji} {img.filename} - {img.classification}",
-                                        use_container_width=True
-                                    )
-                                    
-                                    if img.description and img.description != "Aguardando processamento...":
-                                        st.caption(f"**Descrição:** {img.description[:100]}...")
-                                
-                                else:
-                                    st.warning(f"📄 Arquivo não encontrado: {img.filename}")
-                                    
-                            except Exception as e:
-                                st.error(f"❌ Erro ao carregar imagem: {img.filename}")
-                                st.code(f"Erro: {str(e)}")
-            
-            st.divider()
-        with st.container(border=False, key="chat-content"):
-            chat_messages = db.query(ChatMessage).filter(ChatMessage.chat_id == chat.id).order_by(ChatMessage.created_at).all()
-            
-            if not chat_messages:
-                st.info("💡 Inicie uma conversa sobre as lesões do paciente")
-            
-            for msg in chat_messages:
-                if msg.is_user:
-                    with st.chat_message("user"):
-                        st.write(msg.content)
-                else:
-                    with st.chat_message("assistant"):
-                        st.write(msg.content)
-            
-        # Input para nova mensagem
-        user_input = st.chat_input("Digite sua mensagem...")
-        
-        if user_input:
-            # Salva mensagem do usuário
-            user_message = ChatMessage(
-                chat_id=chat.id,
-                content=user_input,
-                is_user=True,
-                message_type="text"
-            )
-            db.add(user_message)
-            
-            # TODO: Integrar com Gemini para resposta
-            # Por enquanto, resposta mock
-            ai_response = ChatMessage(
-                chat_id=chat.id,
-                content="Esta é uma resposta simulada da IA. A integração com Gemini será implementada em breve.",
-                is_user=False,
-                message_type="text"
-            )
-            db.add(ai_response)
-            db.commit()
-            
+    with st.sidebar:
+        st.subheader(f"💬 Chat {paciente.nome}")
+        if st.button("👈🏼 Voltar", width='stretch'):
+            st.query_params.clear()
             st.rerun()
+        
+        if st.button("🔄 Ré-Classificar Tudo", type="primary", width='stretch'):
+            classify_all_images_in_chat(db, chat.id)
+            st.success("✅ Todas as imagens foram reenviadas para classificação!")
+            time.sleep(3)
+            st.rerun()
+        
+        # if st.button("📊 Relatório", type="primary", width='stretch'):
+        #     st.info("📋 Funcionalidade de relatório em desenvolvimento")
             
-    except Exception as e:
-        st.error(f"Erro ao carregar chat: {str(e)}")
+        st.divider()
 
+        with st.expander("👤 Informações do Paciente", expanded=True):
+            st.write("#### 📋 Dados Pessoais")
+            st.write(f"""
+                    - **Nome:** {paciente.nome}
+                    - **Documento:** {paciente.documento if paciente.documento else "*Não informado*"}
+                    - **Idade:** {paciente.idade} anos
+                    - **Sexo:** {paciente.sexo}
+                    - **Diabetes:** {paciente.diabetes_tipo}
+                    """)
+            st.write("#### 🗄️ Histórico Médico")
+            if paciente.historico_medico:
+                st.write(f"{(paciente.historico_medico[:500]).strip()}..." if len(paciente.historico_medico) > 500 else paciente.historico_medico)
+            else:
+                st.write("*Não informado*")
+
+            st.write("#### 💊 Medicamentos & Alergias")
+            if paciente.medicamentos:
+                st.write(f"- **Medicamentos:** {paciente.medicamentos}")
+            if paciente.alergias:
+                st.write(f"- **Alergias:** {paciente.alergias}")
+        
+        with st.expander("📸 Lesões", expanded=False):
+            new_uploaded_files = st.file_uploader(
+                "Adicionar Novas Imagens",
+                type=['jpg', 'jpeg', 'png'],
+                accept_multiple_files=True,
+                key=f"new_images_{patient_id}",
+                help="Faça upload de novas imagens para análise"
+            )
+            
+            if new_uploaded_files:
+                if st.button("📤 Enviar Novas Imagens", key=f"send_new_images_{patient_id}", type="primary", width='stretch'):
+                    try:
+                        images_data = []
+                        for uploaded_file in new_uploaded_files:
+                            images_data.append({
+                                'data': uploaded_file.getvalue(),
+                                'filename': uploaded_file.name
+                            })
+                        
+                        saved_images = add_images_to_chat(db, chat.id, images_data)
+                        
+                        st.success(f"✅ {len(saved_images)} nova(s) imagem(ns) enviada(s) para análise!")
+                        time.sleep(1)
+                        st.rerun()
+                            
+                    except Exception as e:
+                        st.error(f"❌ Erro ao salvar novas imagens: {str(e)}")
+            
+            st.divider()
+            if images:
+                for idx, img in enumerate(images):
+                    status_emoji = "" if img.classification != "Pendente" else "⏳"
+                    
+                    try:
+                        if os.path.exists(img.image_path):
+                            from PIL import Image as PILImage
+                            pil_image = PILImage.open(img.image_path)
+                            
+                            st.caption(status_emoji + img.description)
+                            
+                            st.image(
+                                pil_image,
+                                caption=f"{status_emoji} {img.filename} - {img.classification}",
+                                width='stretch'
+                            )
+                        
+                        else:
+                            st.warning(f"📄 Arquivo não encontrado: {img.filename}")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Erro ao carregar imagem: {img.filename}")
+                        st.code(f"Erro: {str(e)}")
+            else:
+                st.info("📝 Nenhuma imagem cadastrada ainda.")
+        
+        st.divider()
+    
+    # Área principal do chat (mantida igual)
+    with st.container(border=False, key="chat-content"):
+        chat_messages = db.query(ChatMessage).filter(ChatMessage.chat_id == chat.id).order_by(ChatMessage.created_at).all()
+        
+        if not chat_messages:
+            st.info("💡 Inicie uma conversa sobre as lesões do paciente")
+        
+        for msg in chat_messages:
+            if msg.is_user:
+                with st.chat_message("user"):
+                    st.write(msg.content)
+            else:
+                with st.chat_message("assistant"):
+                    st.write(msg.content)
+        
+    # Input para nova mensagem
+    user_input = st.chat_input("Digite sua mensagem...")
+    
+    if user_input:
+        # Salva mensagem do usuário
+        user_message = ChatMessage(
+            chat_id=chat.id,
+            content=user_input,
+            is_user=True,
+            message_type="text"
+        )
+        db.add(user_message)
+        
+        # TODO: Integrar com Gemini para resposta
+        # Por enquanto, resposta mock
+        ai_response = ChatMessage(
+            chat_id=chat.id,
+            content="Esta é uma resposta simulada da IA. A integração com Gemini será implementada em breve.",
+            is_user=False,
+            message_type="text"
+        )
+        db.add(ai_response)
+        db.commit()
+        
+        st.rerun()
+            
 def main():
     init_session_state()
     
@@ -286,7 +333,7 @@ def main():
             )
         
         with col2:
-            if st.button("➕ Novo Paciente", type="primary", use_container_width=True, key="new_patient_button"):
+            if st.button("➕ Novo Paciente", type="primary", width='stretch', key="new_patient_button"):
                 st.session_state.show_form = True
                 st.rerun()
             st.markdown("<style>.st-key-new_patient_button {margin-top: 26.5px;}</style>", unsafe_allow_html=True)
@@ -324,7 +371,7 @@ def main():
                 # Configura o dataframe para ter links clicáveis
                 st.dataframe(
                     df,
-                    use_container_width=True,
+                    width='stretch',
                     column_config = {
                         "id": st.column_config.NumberColumn(
                             "ID",

@@ -38,6 +38,8 @@ services:
       - ./streamlit:/app
       - ./backend:/app/backend
       - ./bucket:/app/bucket
+      - ./bucket/images:/app/bucket/images
+      - ./backend/models:/app/backend/models
     networks:
       - app-network
 
@@ -57,6 +59,8 @@ services:
       - ./worker/app:/app/app
       - ./backend:/app/backend
       - ./bucket:/app/bucket
+      - ./bucket/images:/app/bucket/images
+      - ./backend/models:/app/backend/models
     networks:
       - app-network
 
