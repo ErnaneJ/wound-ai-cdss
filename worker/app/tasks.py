@@ -140,14 +140,14 @@ def processar_imagens_pendentes(self):
     """Task Celery para processar imagens pendentes"""
     return classificar_imagem_batch()
 
-
 @celery_app.task(bind=True, name='app.tasks.classificar_imagem_individual')
 def classificar_imagem_individual(self, image_id):
-    """Task Celery para classificar uma imagem individual"""
+    """Task Celery para classificar uma imagem individual e gerar descrição"""
     try:
         from database import SessionLocal
-        from models import Image
+        from models import Image, ChatMessage
         from classification_model import classificar_imagem
+        from image_description_service import describe_image_with_analysis
         
         db = SessionLocal()
         
@@ -177,23 +177,62 @@ def classificar_imagem_individual(self, image_id):
                     'error': error_msg
                 }
             
-            # Classifica
             resultado = classificar_imagem(image_path)
             
-            if resultado:
-                img.classification = resultado['classe']
-                img.description = f"{resultado['classe_traduzida']} ({resultado['confianca']})"
+            if resultado.get('status') == 'sucesso':
+                img.classification = resultado['classe_predita']
+                img.description = f"{resultado['classe_traduzida']} ({resultado['confianca_predita_percentual']})"
+                
+                try:
+                    print(f"📝 Gerando descrição técnica para imagem {img.id}...")
+                    descricao_tecnica = describe_image_with_analysis(image_path, resultado)
+                    
+                    mensagem_chat = ChatMessage(
+                        chat_id=img.chat_id,
+                        content=f"""
+Imagem classificada como {resultado['classe_traduzida']} com uma probabilidade de {resultado['confianca_predita_percentual']}.
+
+@@IMAGE:{os.path.basename(image_path).split('.')[0]}@@
+
+{descricao_tecnica}
+""",
+                        is_user=False,
+                        message_type="analysis"
+                    )
+                    db.add(mensagem_chat)
+                    print(f"✅ Descrição técnica e mensagem criadas para imagem {img.id}")
+                    
+                except Exception as desc_error:
+                    print(f"⚠️  Erro ao gerar descrição técnica: {desc_error}")
+                    # Cria mensagem básica em caso de erro
+                    mensagem_chat = ChatMessage(
+                        chat_id=img.chat_id,
+                        content=f"""
+Imagem classificada como {resultado['classe_traduzida']} com uma probabilidade de {resultado['confianca_predita_percentual']}.
+
+$$IMAGE:{os.path.basename(image_path).split('.')[0]}$$
+
+*Análise técnica não disponível no momento.*
+                        """,
+                        is_user=False,
+                        message_type="analysis"
+                    )
+                    db.add(mensagem_chat)
+                
                 db.commit()
+                
                 return {
                     'status': 'success',
                     'image_id': image_id,
                     'filename': img.filename,
-                    'classification': resultado['classe'],
+                    'classification': resultado['classe_predita'],
                     'description': resultado['classe_traduzida'],
-                    'confidence': resultado['confianca']
+                    'confidence': resultado['confianca_predita_percentual'],
+                    'technical_analysis_created': True
                 }
             else:
-                error_msg = "Falha na classificação da imagem"
+                # Se houve erro na classificação
+                error_msg = resultado.get('mensagem', 'Falha na classificação da imagem')
                 img.classification = "ERROR"
                 img.description = error_msg
                 db.commit()
@@ -204,13 +243,15 @@ def classificar_imagem_individual(self, image_id):
                 
         except Exception as e:
             error_msg = f"Erro no processamento: {str(e)}"
-            # Tenta atualizar o status para ERROR mesmo em caso de exceção
+            print(f"💥 ERRO: {error_msg}")
+            print(traceback.format_exc())
+            
             try:
                 img.classification = "ERROR"
                 img.description = error_msg[:255]
                 db.commit()
             except:
-                pass  # Se não conseguir atualizar, pelo menos loga o erro
+                pass
             
             return {
                 'status': 'error',
@@ -220,7 +261,9 @@ def classificar_imagem_individual(self, image_id):
             db.close()
             
     except ImportError as e:
+        error_msg = f"Erro de importação: {str(e)}"
+        print(f"💥 IMPORT ERROR: {error_msg}")
         return {
             'status': 'error',
-            'error': f"Erro de importação: {str(e)}"
+            'error': error_msg
         }

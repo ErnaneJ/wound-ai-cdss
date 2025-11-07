@@ -31,6 +31,7 @@ services:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - BUCKET_PATH=/app/bucket
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - postgres
       - redis
@@ -40,6 +41,7 @@ services:
       - ./bucket:/app/bucket
       - ./bucket/images:/app/bucket/images
       - ./backend/models:/app/backend/models
+      - ./.env:/app/.env
     networks:
       - app-network
 
@@ -52,6 +54,7 @@ services:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - BUCKET_PATH=/app/bucket
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - postgres
       - redis
@@ -61,6 +64,7 @@ services:
       - ./bucket:/app/bucket
       - ./bucket/images:/app/bucket/images
       - ./backend/models:/app/backend/models
+      - ./.env:/app/.env
     networks:
       - app-network
 

@@ -1,9 +1,11 @@
+from PIL import Image as PILImage
 import streamlit as st
 from datetime import datetime
 import os
 import sys
 import pandas as pd
 import time
+import re
 
 if '/app/backend' not in sys.path:
     sys.path.append('/app/backend')
@@ -16,7 +18,7 @@ from backend.database_operations import (
     get_db,
     classify_all_images_in_chat
 )
-from backend.models import Chat, ChatMessage
+from backend.models import Chat, ChatMessage, Image
 
 import base64
 import streamlit as st
@@ -42,6 +44,63 @@ st.set_page_config(
     layout="wide"
 )
 
+def stream_response(text: str):
+    """Simula streaming de texto"""
+    for word in text.split():
+        yield word + " "
+        time.sleep(0.03)
+
+def render_message_with_images(message_content: str, container, streaming=False):
+    """
+    Renderiza mensagem com suporte a placeholders de imagem @@IMAGEM:HASH@@
+    """
+    db = next(get_db())
+    
+    try:
+        cursor = 0
+        # Encontra todos os placeholders de imagem
+        for match in re.finditer(r"@@IMAGE:([a-f0-9]+)@@", message_content):
+            start, end = match.span()
+            image_hash = match.group(1)
+
+            # Renderiza texto antes da imagem
+            before_text = message_content[cursor:start].strip()
+            if before_text:
+                if streaming:
+                    container.write_stream(stream_response(before_text))
+                else:
+                    container.write(before_text)
+
+            # Renderiza a imagem
+            try:
+                # Busca imagem pelo hash no nome do arquivo
+                image = db.query(Image).filter(Image.image_path.like(f'%{image_hash}%')).first()
+                if image and os.path.exists(image.image_path):
+                    pil_image = PILImage.open(image.image_path)
+                    container.image(
+                        pil_image, 
+                        caption=f"📷 {image.filename} - {image.classification}",
+                        width=250
+                    )
+                else:
+                    container.warning(f"❌ Imagem não encontrada (Hash: {image_hash})")
+            except Exception as img_error:
+                container.error(f"❌ Erro ao carregar imagem: {str(img_error)}")
+
+            cursor = end
+
+        after_text = message_content[cursor:].strip() + "\n\n---\n\n***LLM:** Gemini | **Classificação:** Autoral.*"
+        if after_text:
+            if streaming:
+                container.write_stream(stream_response(after_text))
+            else:
+                container.write(after_text)
+                
+    except Exception as e:
+        container.error(f"❌ Erro ao renderizar mensagem: {str(e)}")
+    finally:
+        db.close()
+        
 def init_session_state():
     """Inicializa estados da sessão"""
     if 'show_form' not in st.session_state:
@@ -232,7 +291,6 @@ def show_chat_view(patient_id):
                     
                     try:
                         if os.path.exists(img.image_path):
-                            from PIL import Image as PILImage
                             pil_image = PILImage.open(img.image_path)
                             
                             st.caption(status_emoji + img.description)
@@ -254,7 +312,6 @@ def show_chat_view(patient_id):
         
         st.divider()
     
-    # Área principal do chat (mantida igual)
     with st.container(border=False, key="chat-content"):
         chat_messages = db.query(ChatMessage).filter(ChatMessage.chat_id == chat.id).order_by(ChatMessage.created_at).all()
         
@@ -267,13 +324,11 @@ def show_chat_view(patient_id):
                     st.write(msg.content)
             else:
                 with st.chat_message("assistant"):
-                    st.write(msg.content)
+                    render_message_with_images(msg.content, st, streaming=False)
         
-    # Input para nova mensagem
-    user_input = st.chat_input("Digite sua mensagem...")
+    user_input = st.chat_input("Digite sua mensagem sobre as lesões...")
     
     if user_input:
-        # Salva mensagem do usuário
         user_message = ChatMessage(
             chat_id=chat.id,
             content=user_input,
@@ -281,17 +336,31 @@ def show_chat_view(patient_id):
             message_type="text"
         )
         db.add(user_message)
-        
-        # TODO: Integrar com Gemini para resposta
-        # Por enquanto, resposta mock
-        ai_response = ChatMessage(
-            chat_id=chat.id,
-            content="Esta é uma resposta simulada da IA. A integração com Gemini será implementada em breve.",
-            is_user=False,
-            message_type="text"
-        )
-        db.add(ai_response)
         db.commit()
+        
+        with st.chat_message("user"):
+            st.write(user_input)
+        
+        with st.chat_message("assistant"):
+            response_placeholder = st.empty()
+            
+            with st.spinner("Analisando sua pergunta..."):
+                from backend.chat_service import generate_chat_response
+                full_response = generate_chat_response(db, chat.id, user_input)
+        
+            displayed_response = ""
+            for chunk in stream_response(full_response):
+                displayed_response += chunk
+                response_placeholder.write(displayed_response)
+            
+            ai_response = ChatMessage(
+                chat_id=chat.id,
+                content=full_response,
+                is_user=False,
+                message_type="text"
+            )
+            db.add(ai_response)
+            db.commit()
         
         st.rerun()
             

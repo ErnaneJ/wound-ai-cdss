@@ -3,6 +3,7 @@ import hashlib
 from sqlalchemy.orm import Session
 from .database import get_db, SessionLocal
 from .models import Paciente, Chat, Image, ChatMessage, ReportPDF
+from .gemini_service import generate_chat_introduction
 
 def classify_all_images_in_chat(db: Session, chat_id: int):
     """Classifica todas as imagens em um chat específico"""
@@ -70,6 +71,37 @@ def create_paciente_with_chat(db: Session, paciente_data, images_data=[]):
     db.add(chat)
     db.flush()
     
+    try:
+        introduction_message = generate_chat_introduction({
+            'nome': paciente.nome,
+            'idade': paciente.idade,
+            'sexo': paciente.sexo,
+            'diabetes_tipo': paciente.diabetes_tipo,
+            'historico_medico': paciente.historico_medico,
+            'medicamentos': paciente.medicamentos,
+            'alergias': paciente.alergias
+        })
+        
+        chat_message = ChatMessage(
+            chat_id=chat.id,
+            content=introduction_message,
+            is_user=False,
+            message_type="text"
+        )
+        db.add(chat_message)
+        print(f"✅ Mensagem de introdução criada para o chat {chat.id}")
+        
+    except Exception as e:
+        print(f"⚠️  Não foi possível criar mensagem de introdução: {e}")
+        # Cria mensagem padrão em caso de erro
+        chat_message = ChatMessage(
+            chat_id=chat.id,
+            content=f"Olá! Sou seu assistente de análise de lesões por pressão. Paciente: {paciente.nome}, {paciente.idade} anos, Diabetes {paciente.diabetes_tipo}. Estou pronto para analisar as imagens das lesões.",
+            is_user=False,
+            message_type="text"
+        )
+        db.add(chat_message)
+    
     # Salva imagens
     saved_images = []
     for img_data in images_data:
@@ -95,6 +127,12 @@ def create_paciente_with_chat(db: Session, paciente_data, images_data=[]):
             queue='celery'  # Especifica a fila
         )
         print(f"✅ Task enviada para imagem {img.id}: {result.id}")
+    
+    celery_app.send_task(
+        'app.tasks.inicializar_chat', 
+        args=[img.id],
+        queue='celery'  # Especifica a fila
+    )
     
     print(f"🎯 {len(saved_images)} tasks enviadas para processamento")
 
