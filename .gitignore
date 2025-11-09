@@ -3,3 +3,4 @@ bucket/reports/*
 .env
 __pycache__
 backend/models/
+.venv
