@@ -4,3 +4,23 @@ bucket/reports/*
 __pycache__
 backend/models/
 .venv
+
+# Paper / LaTeX (kept locally and on Overleaf, not in repo)
+article/
+
+# Drive backup (checkpoints, dataset, notebook copy, large binaries)
+drive/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python (misc)
+*.py[cod]
+*.pyo
+.ipynb_checkpoints/
+*.egg-info/
+dist/
+build/
+.ruff_cache/

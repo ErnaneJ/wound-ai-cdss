@@ -161,8 +161,6 @@ def generate_chat_response(
         
         return f"""
         Hello! I'm your wound analysis assistant.
-        
-        {os.getenv('GEMINI_API_KEY')}
 
         I am currently experiencing technical difficulties, but I can inform you that:
         - **Patient:** {paciente_nome}
