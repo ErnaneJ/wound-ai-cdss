@@ -107,7 +107,7 @@ This repository accompanies a paper submitted to CBEB 2026. If you use this code
 - Training and test data are drawn from the public "Multi-modal wound classification using images and locations" dataset, collected at the AZH Wound and Vascular Center (Anisuzzaman et al., 2022; Patel et al., 2024): [github.com/uwm-bigdata/wound-classification-using-images-and-locations](https://github.com/uwm-bigdata/wound-classification-using-images-and-locations). The dataset is public and pre-anonymized.
 - The deployed system persists real patient identifiers, clinical history, and images, unlike the pre-anonymized training dataset, and therefore falls under Brazil's LGPD. The current proof of concept does not yet implement encryption at rest, authentication, or an anonymization pipeline; hardening the platform to LGPD requirements is a prerequisite for any use beyond controlled evaluation.
 - `backend/models/` is git-ignored (large binary weights). You must obtain `best_wound_classifier_FINETUNED.h5` separately before starting the stack.
-- The LLM component uses Google's `gemini-2.5-flash-lite` with default generation parameters (no explicit temperature or top-p override).
+- The LLM component uses Google's `gemini-3.6-flash` with default generation parameters (no explicit temperature or top-p override).
 
 ---
 

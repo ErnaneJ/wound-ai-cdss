@@ -7,8 +7,9 @@ from tensorflow.keras.applications import VGG16
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Flatten, Dropout
 
-MODELO_H5_PATH = '/Users/ernane/me/diabetes-lesion-analysis/backend/models/best_wound_classifier_FINETUNED.h5'
-METRICAS_CSV_PATH = '/Users/ernane/me/diabetes-lesion-analysis/backend/models/wound_metrics_report_FINETUNED.csv'
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MODELO_H5_PATH = os.path.join(_REPO_ROOT, 'backend', 'models', 'best_wound_classifier_FINETUNED.h5')
+METRICAS_CSV_PATH = os.path.join(_REPO_ROOT, 'backend', 'models', 'wound_metrics_report_FINETUNED.csv')
 
 CLASSES = ['BG', 'D', 'N', 'P', 'S', 'V']
 IMG_SIZE = (224, 224)
