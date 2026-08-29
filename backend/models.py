@@ -27,7 +27,7 @@ class Chat(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     paciente_id = Column(Integer, ForeignKey("pacientes.id"))
-    titulo = Column(String(200), default="Chat sobre lesões")
+    titulo = Column(String(200), default="Chat about wounds")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

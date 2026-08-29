@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS pacientes (
 CREATE TABLE IF NOT EXISTS chats (
     id SERIAL PRIMARY KEY,
     paciente_id INTEGER REFERENCES pacientes(id),
-    titulo VARCHAR(200) DEFAULT 'Chat sobre lesões',
+    titulo VARCHAR(200) DEFAULT 'Chat about wounds',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

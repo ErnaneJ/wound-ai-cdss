@@ -5,20 +5,20 @@ load_dotenv(override=True, verbose=True)
 
 def get_gemini_client():
     """
-    Retorna o cliente do Gemini
+    Returns the Gemini client
     """
     try:
         from google import genai
         from google.genai import types
-        
+
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            raise ValueError("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
-        
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
+
         client = genai.Client(api_key=api_key)
         return client
     except ImportError:
-        raise ImportError("Biblioteca google-genai não instalada. Execute: pip install google-genai")
+        raise ImportError("google-genai library not installed. Run: pip install google-genai")
 
 def generate_chat_introduction(paciente_data):
     try:
@@ -57,7 +57,7 @@ def generate_chat_introduction(paciente_data):
         return response.text.strip()
         
     except Exception as e:
-        print(f"❌ Erro ao gerar mensagem com Gemini: {e}")
+        print(f"❌ Error generating message with Gemini: {e}")
         return f"""
         Hello! I am a Clinical Decision Support Artificial Intelligence (CDSS) system specialized in the initial screening and classification of skin lesions.
         

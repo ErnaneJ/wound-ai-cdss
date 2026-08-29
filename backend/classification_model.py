@@ -17,7 +17,7 @@ MODELO = None
 METRICAS_DF = None
 
 def carregar_recursos():
-    """Carrega modelo e métricas"""
+    """Loads the model and metrics"""
     global MODELO, METRICAS_DF
     
     if MODELO is not None:
@@ -39,7 +39,7 @@ def carregar_recursos():
         MODELO = Model(inputs=base_model.input, outputs=predictions)
         
         MODELO.load_weights(MODELO_H5_PATH)
-        print("✅ Modelo carregado")
+        print("✅ Model loaded")
         
         METRICAS_DF = pd.read_csv(METRICAS_CSV_PATH, index_col=0)
         print("✅ Metrics loaded")
@@ -63,8 +63,8 @@ def traduzir_classe(classe):
 
 def classificar_imagem(image_path: str) -> dict:
     """
-    Classifica uma imagem e retorna um dicionário estruturado com 
-    probabilidades e métricas de risco para o LLM.
+    Classifies an image and returns a structured dictionary with
+    probabilities and risk metrics for the LLM.
     """
     if not carregar_recursos():
         return {"status": "erro", "mensagem": "Failed to load model or metrics."}
@@ -77,7 +77,7 @@ def classificar_imagem(image_path: str) -> dict:
         img_array = np.array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
-        predictions = MODELO.predict(img_array, verbose=0)[0] # Vetor de 6 probabilidades
+        predictions = MODELO.predict(img_array, verbose=0)[0] # Vector of 6 probabilities
         
         class_idx = np.argmax(predictions)
         classe_predita = CLASSES[class_idx]

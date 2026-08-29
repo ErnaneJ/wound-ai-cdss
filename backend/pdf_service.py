@@ -31,20 +31,20 @@ traducoes = {
 }
 
 def get_gemini_client():
-    """Retorna o cliente do Gemini"""
+    """Returns the Gemini client"""
     try:
         from google import genai
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            raise ValueError("GEMINI_API_KEY não encontrada")
+            raise ValueError("GEMINI_API_KEY not found")
         client = genai.Client(api_key=api_key)
         return client
     except ImportError:
-        raise ImportError("Biblioteca google-genai não instalada")
+        raise ImportError("google-genai library not installed")
 
 def extract_probabilities_from_analysis(db: Session, image_hash: str, chat_id: int) -> dict:
     """
-    Extrai as probabilidades reais da mensagem de análise do Gemini
+    Extracts the actual probabilities from the Gemini analysis message
     """
     try:
         message = db.query(ChatMessage).filter(
@@ -92,12 +92,12 @@ def extract_probabilities_from_analysis(db: Session, image_hash: str, chat_id: i
             return {}
             
     except Exception as e:
-        print(f"❌ Erro ao extrair probabilidades: {e}")
+        print(f"❌ Error extracting probabilities: {e}")
         return {}
-    
+
 def get_formal_analysis(image_path: str, classification_data: dict) -> str:
     """
-    Usa Gemini para gerar uma análise formal para o PDF
+    Uses Gemini to generate a formal analysis for the PDF
     """
     try:
         client = get_gemini_client()
@@ -145,11 +145,11 @@ def get_formal_analysis(image_path: str, classification_data: dict) -> str:
         return response.text.strip()
         
     except Exception as e:
-        print(f"❌ Erro ao gerar análise formal: {e}")
-        return "Análise formal não disponível no momento."
+        print(f"❌ Error generating formal analysis: {e}")
+        return "Formal analysis not available at this time."
 
 def create_metrics_table() -> Table:
-    """Cria tabela com as métricas do modelo"""
+    """Creates a table with the model's metrics"""
     data = [
         ['Class', 'Description', 'Precision', 'Recall', 'F1-Score']
     ]
@@ -180,7 +180,7 @@ def create_metrics_table() -> Table:
     return table
 
 def create_image_metrics_table(probabilities: dict) -> Table:
-    """Cria tabela com métricas específicas da imagem usando probabilidades reais"""
+    """Creates a table with image-specific metrics using the actual probabilities"""
     sorted_probs = sorted(probabilities.items(), 
                          key=lambda x: float(x[1].rstrip('%')), 
                          reverse=True)
@@ -217,7 +217,7 @@ def create_image_metrics_table(probabilities: dict) -> Table:
     return table
 
 def resize_image_for_pdf(image_path: str, max_width: int = 200) -> str:
-    """Redimensiona imagem para o PDF e retorna caminho temporário"""
+    """Resizes an image for the PDF and returns the temporary path"""
     try:
         with PILImage.open(image_path) as img:
             width_percent = max_width / float(img.size[0])
@@ -230,21 +230,21 @@ def resize_image_for_pdf(image_path: str, max_width: int = 200) -> str:
             
             return temp_path
     except Exception as e:
-        print(f"❌ Erro ao redimensionar imagem: {e}")
+        print(f"❌ Error resizing image: {e}")
         return image_path
 
 def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
     """
-    Cria um relatório PDF profissional para o paciente
+    Creates a professional PDF report for the patient
     """
     try:
         paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
         if not paciente:
-            raise ValueError("Paciente não encontrado")
-        
+            raise ValueError("Patient not found")
+
         chat = db.query(Chat).filter(Chat.paciente_id == paciente_id).first()
         if not chat:
-            raise ValueError("Chat não encontrado")
+            raise ValueError("Chat not found")
         
         images = db.query(Image).filter(Image.chat_id == chat.id).all()
         
@@ -349,7 +349,7 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
                         story.append(pdf_image)
                         story.append(Spacer(1, 10))
                 except Exception as e:
-                    print(f"❌ Erro ao adicionar imagem: {e}")
+                    print(f"❌ Error adding image: {e}")
                 
                 img_basic_info = f"""
                 <b>Classification:</b> {img.classification} - {img.description}<br/>
@@ -449,12 +449,12 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
         return output_path
         
     except Exception as e:
-        print(f"❌ Erro ao gerar PDF: {e}")
+        print(f"❌ Error generating PDF: {e}")
         raise
 
 def generate_report_for_patient(db: Session, paciente_id: int) -> str:
     """
-    Gera relatório PDF e retorna o caminho do arquivo
+    Generates the PDF report and returns the file path
     """
     reports_dir = "/app/bucket/reports"
     os.makedirs(reports_dir, exist_ok=True)

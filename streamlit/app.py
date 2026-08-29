@@ -45,14 +45,14 @@ st.set_page_config(
 )
 
 def stream_response(text: str):
-    """Simula streaming de texto"""
+    """Simulates text streaming"""
     for word in text.split():
         yield word + " "
         time.sleep(0.03)
 
 def render_message_with_images(message_content: str, container, streaming=False):
     """
-    Renderiza mensagem com suporte a placeholders de imagem @@IMAGEM:HASH@@
+    Renders a message with support for image placeholders @@IMAGE:HASH@@
     """
     db = next(get_db())
     
@@ -79,9 +79,9 @@ def render_message_with_images(message_content: str, container, streaming=False)
                         width=250
                     )
                 else:
-                    container.warning(f"❌ Imagem não encontrada (Hash: {image_hash})")
+                    container.warning(f"❌ Image not found (Hash: {image_hash})")
             except Exception as img_error:
-                container.error(f"❌ Erro ao carregar imagem: {str(img_error)}")
+                container.error(f"❌ Error loading image: {str(img_error)}")
 
             cursor = end
 
@@ -91,14 +91,14 @@ def render_message_with_images(message_content: str, container, streaming=False)
                 container.write_stream(stream_response(after_text))
             else:
                 container.write(after_text)
-                
+
     except Exception as e:
-        container.error(f"❌ Erro ao renderizar mensagem: {str(e)}")
+        container.error(f"❌ Error rendering message: {str(e)}")
     finally:
         db.close()
         
 def init_session_state():
-    """Inicializa estados da sessão"""
+    """Initializes session state"""
     if 'show_form' not in st.session_state:
         st.session_state.show_form = False
 
@@ -106,7 +106,7 @@ def init_session_state():
         st.session_state.temp_images = []
 
 def show_patient_form():
-    """Mostra formulário de cadastro de paciente"""
+    """Shows the patient registration form"""
     st.subheader("📝 Register New Patient")
     
     with st.form("patient_form", clear_on_submit=True):
@@ -200,7 +200,7 @@ def show_patient_form():
                 st.error(f"Error saving patient: {str(e)}")
 
 def show_chat_view(patient_id):
-    """Mostra a view do chat para um paciente específico"""
+    """Shows the chat view for a specific patient"""
     db = next(get_db())
     paciente_data = get_paciente_with_chat(db, patient_id)
     
@@ -510,7 +510,7 @@ def main():
                         "created_at": st.column_config.DatetimeColumn(
                             "Created in",
                             help="Creation date",
-                            format="DD/MM/YYYY à\s HH:mm",
+                            format="MM/DD/YYYY HH:mm",
                             width="small"
                         ),
                     }

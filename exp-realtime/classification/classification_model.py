@@ -17,15 +17,15 @@ MODELO = None
 METRICAS_DF = None
 
 def carregar_recursos():
-    """Carrega modelo e métricas"""
+    """Loads the model and metrics"""
     global MODELO, METRICAS_DF
-    
+
     if MODELO is not None:
         return True
 
     try:
-        print("📦 Carregando modelo...")
-        
+        print("📦 Loading model...")
+
         base_model = VGG16(weights=None, include_top=False, input_shape=(224, 224, 3))
         for layer in base_model.layers:
             layer.trainable = False
@@ -37,17 +37,17 @@ def carregar_recursos():
         x = Dropout(0.5)(x)
         predictions = Dense(len(CLASSES), activation='softmax')(x)
         MODELO = Model(inputs=base_model.input, outputs=predictions)
-        
+
         MODELO.load_weights(MODELO_H5_PATH)
-        print("✅ Modelo carregado")
-        
+        print("✅ Model loaded")
+
         METRICAS_DF = pd.read_csv(METRICAS_CSV_PATH, index_col=0)
-        print("✅ Métricas carregadas")
-        
+        print("✅ Metrics loaded")
+
         return True
-        
+
     except Exception as e:
-        print(f"❌ Erro ao carregar recursos: {e}")
+        print(f"❌ Error loading resources: {e}")
         return False
 
 def traduzir_classe(classe):
@@ -63,21 +63,21 @@ def traduzir_classe(classe):
 
 def classificar_imagem(image_path: str) -> dict:
     """
-    Classifica uma imagem e retorna um dicionário estruturado com 
-    probabilidades e métricas de risco para o LLM.
+    Classifies an image and returns a structured dictionary with
+    probabilities and risk metrics for the LLM.
     """
     if not carregar_recursos():
-        return {"status": "erro", "mensagem": "Falha ao carregar modelo ou métricas."}
-    
+        return {"status": "erro", "mensagem": "Failed to load model or metrics."}
+
     try:
-        print(f"🔍 Processando: {os.path.basename(image_path)}")
+        print(f"🔍 Processing: {os.path.basename(image_path)}")
         
         img = Image.open(image_path).convert('RGB')
         img = img.resize(IMG_SIZE)
         img_array = np.array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
-        predictions = MODELO.predict(img_array, verbose=0)[0] # Vetor de 6 probabilidades
+        predictions = MODELO.predict(img_array, verbose=0)[0] # Vector of 6 probabilities
         
         class_idx = np.argmax(predictions)
         classe_predita = CLASSES[class_idx]
@@ -87,7 +87,7 @@ def classificar_imagem(image_path: str) -> dict:
         
         recall_p = float(METRICAS_DF.loc['P', 'recall'])
         
-        top_classes = np.argsort(predictions)[::-1] # Índices em ordem decrescente
+        top_classes = np.argsort(predictions)[::-1] # Indices in descending order
         top_3_classes = [CLASSES[i] for i in top_classes[:3]]
         
         dados_analise = {
@@ -100,13 +100,13 @@ def classificar_imagem(image_path: str) -> dict:
             "metrica_f1_classe_predita": float(METRICAS_DF.loc[classe_predita, 'f1-score']),
             "risco_p": {
                 "Recall_P": recall_p,
-                "Aviso_P": f"Recall histórico ({recall_p:.2f}) para Úlcera por Pressão é baixo. Cautela é necessária."
+                "Aviso_P": f"Historical recall ({recall_p:.2f}) for Pressure Ulcer is low. Caution is advised."
             }
         }
-        
-        print(f"✅ Resultado: {dados_analise['classe_predita']} ({dados_analise['confianca_predita_percentual']})")
+
+        print(f"✅ Result: {dados_analise['classe_predita']} ({dados_analise['confianca_predita_percentual']})")
         return dados_analise
-        
+
     except Exception as e:
-        print(f"❌ Erro na classificação: {e}")
+        print(f"❌ Error in classification: {e}")
         return {"status": "erro", "mensagem": str(e)}
