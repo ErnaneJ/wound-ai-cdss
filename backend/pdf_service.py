@@ -8,7 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.units import inch, cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from .models import Paciente, Chat, Image, ChatMessage
+from .models import Patient, Chat, Image, ChatMessage
 import re
 from PIL import Image as PILImage
 
@@ -80,7 +80,7 @@ def extract_probabilities_from_analysis(db: Session, image_hash: str, chat_id: i
         """
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-3.6-flash',
             contents=prompt
         )
         
@@ -132,7 +132,7 @@ def get_formal_analysis(image_path: str, classification_data: dict) -> str:
         
         from google.genai import types
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-3.6-flash',
             contents=[
                 prompt,
                 types.Part.from_bytes(
@@ -238,16 +238,16 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
     Creates a professional PDF report for the patient
     """
     try:
-        paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
-        if not paciente:
+        patient = db.query(Patient).filter(Patient.id == paciente_id).first()
+        if not patient:
             raise ValueError("Patient not found")
 
-        chat = db.query(Chat).filter(Chat.paciente_id == paciente_id).first()
+        chat = db.query(Chat).filter(Chat.patient_id == paciente_id).first()
         if not chat:
             raise ValueError("Chat not found")
-        
+
         images = db.query(Image).filter(Image.chat_id == chat.id).all()
-        
+
         doc = SimpleDocTemplate(
             output_path,
             pagesize=A4,
@@ -255,11 +255,11 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
             leftMargin=72,
             topMargin=72,
             bottomMargin=72,
-            title=f"Preliminary Report - {paciente.nome}",
+            title=f"Preliminary Report - {patient.name}",
             author="AI-CDSS Wound Analysis System",
-            subject=f"Lesion analysis for patient {paciente.nome}",
+            subject=f"Lesion analysis for patient {patient.name}",
             creator="AI-Assisted Analysis System",
-            keywords=f"Lesion, pressure, diabetes,{paciente.nome}, preliminary-report"
+            keywords=f"Lesion, pressure, diabetes,{patient.name}, preliminary-report"
         )
         
         styles = getSampleStyleSheet()
@@ -318,23 +318,23 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
         story.append(Spacer(1, 10))
         
         data_emissao = f"""
-        <b>Issue date:</b> {datetime.now().strftime('%m/%d/%Y às %H:%M')}<br/><br/>
+        <b>Issue date:</b> {datetime.now().strftime('%m/%d/%Y at %H:%M')}<br/><br/>
         """
         story.append(Paragraph(data_emissao, small_style))
         
         story.append(Paragraph("1. PATIENT INFORMATION", heading_style))
         
-        paciente_info = f"""
-        <b>Name:</b> {paciente.nome}<br/>
-        <b>Age:</b> {paciente.idade} years old<br/>
-        <b>Sex:</b> {paciente.sexo}<br/>
-        <b>Diabetes Type:</b> {paciente.diabetes_tipo}<br/>
-        <b>Document:</b> {paciente.documento or 'Not informed'}<br/>
-        <b>Medical History:</b> {paciente.historico_medico or 'Not informed'}<br/>
-        <b>Medications:</b> {paciente.medicamentos or 'Not informed'}<br/>
-        <b>Allergies:</b> {paciente.alergias or 'Not informed'}
+        patient_info = f"""
+        <b>Name:</b> {patient.name}<br/>
+        <b>Age:</b> {patient.age} years old<br/>
+        <b>Sex:</b> {patient.sex}<br/>
+        <b>Diabetes Type:</b> {patient.diabetes_type}<br/>
+        <b>Document:</b> {patient.document or 'Not informed'}<br/>
+        <b>Medical History:</b> {patient.medical_history or 'Not informed'}<br/>
+        <b>Medications:</b> {patient.medications or 'Not informed'}<br/>
+        <b>Allergies:</b> {patient.allergies or 'Not informed'}
         """
-        story.append(Paragraph(paciente_info, normal_style))
+        story.append(Paragraph(patient_info, normal_style))
         
         if images:
             story.append(Paragraph("2. LESION ANALYSIS", heading_style))
@@ -431,7 +431,7 @@ def create_pdf_report(db: Session, paciente_id: int, output_path: str) -> str:
         story.append(Spacer(1, 30))
         footer_text = f"""
         <i>Document generated automatically - Wound Analysis System<br/>
-        Patient: {paciente.nome} | ID: {paciente.id} | Generated on: {datetime.now().strftime('%m/%d/%Y %H:%M')}<br/><br/>
+        Patient: {patient.name} | ID: {patient.id} | Generated on: {datetime.now().strftime('%m/%d/%Y %H:%M')}<br/><br/>
         </i>
         """
         story.append(Paragraph(footer_text, small_style))

@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from typing import List, Dict
-from .models import Paciente, ChatMessage, Image
+from .models import Patient, ChatMessage, Image
 
 load_dotenv(override=True, verbose=True)
 
@@ -22,19 +22,19 @@ def get_gemini_client():
     except ImportError:
         raise ImportError("google-genai library not installed")
 
-def build_system_prompt(paciente: Paciente, images: List[Image]) -> str:
+def build_system_prompt(patient: Patient, images: List[Image]) -> str:
     """
     Builds the system prompt from the patient's data and images
     """
-    paciente_info = f"""
-    DADOS DO PACIENTE:
-    - Name: {paciente.nome}
-    - Age: {paciente.idade} years old
-    - Sex: {paciente.sexo}
-    - Type of Diabetes: {paciente.diabetes_tipo}
-    - Medical History: {paciente.historico_medico or 'Not provided'}
-    - Medications: {paciente.medicamentos or 'Not provided'}
-    - Allergies: {paciente.alergias or 'Not provided'}
+    patient_info = f"""
+    PATIENT DATA:
+    - Name: {patient.name}
+    - Age: {patient.age} years old
+    - Sex: {patient.sex}
+    - Type of Diabetes: {patient.diabetes_type}
+    - Medical History: {patient.medical_history or 'Not provided'}
+    - Medications: {patient.medications or 'Not provided'}
+    - Allergies: {patient.allergies or 'Not provided'}
     """
 
     images_info = ""
@@ -43,12 +43,12 @@ def build_system_prompt(paciente: Paciente, images: List[Image]) -> str:
         for img in images:
             if img.classification != "Pending":
                 images_info += f"- {img.filename}: {img.classification} - {img.description}\n"
-    
+
     system_prompt = f"""
     YOU ARE: A medical assistant specializing in pressure wound analysis and diabetic patient care.
 
     CASE CONTEXT:
-    {paciente_info}
+    {patient_info}
     {images_info}
 
     STRICT RULES OF CONDUCT:
@@ -94,18 +94,18 @@ def build_conversation_context(messages: List[ChatMessage], max_messages: int = 
     Builds the conversation context as plain text
     """
     recent_messages = messages[-max_messages:] if len(messages) > max_messages else messages
-    
+
     conversation_context = "\nRecent history of the conversation:\n"
-    
+
     for msg in recent_messages:
         role = "USER" if msg.is_user else "ASSISTANT"
         conversation_context += f"{role}: {msg.content}\n\n"
-    
+
     return conversation_context
 
 def generate_chat_response(
-    db: Session, 
-    chat_id: int, 
+    db: Session,
+    chat_id: int,
     user_message: str
 ) -> str:
     """
@@ -119,53 +119,53 @@ def generate_chat_response(
         chat = db.query(Chat).filter(Chat.id == chat_id).first()
         if not chat:
             raise ValueError("Chat not found")
-        
-        paciente = db.query(Paciente).filter(Paciente.id == chat.paciente_id).first()
-        if not paciente:
+
+        patient = db.query(Patient).filter(Patient.id == chat.patient_id).first()
+        if not patient:
             raise ValueError("Patient not found")
-        
+
         images = db.query(Image).filter(Image.chat_id == chat_id).all()
-        
+
         messages = db.query(ChatMessage).filter(ChatMessage.chat_id == chat_id).order_by(ChatMessage.created_at).all()
-        
-        system_prompt = build_system_prompt(paciente, images)
-        
+
+        system_prompt = build_system_prompt(patient, images)
+
         conversation_context = build_conversation_context(messages)
-        
+
         full_prompt = f"""
         {system_prompt}
-        
+
         {conversation_context}
-        
+
         NEW QUESTION FROM THE USER: {user_message}
-        
+
         Please respond in a helpful and appropriate manner based on the medical context above.
         """
-        
+
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-3.6-flash',
             contents=full_prompt
         )
-        
+
         return response.text.strip()
-        
+
     except Exception as e:
         print(f"❌ Error generating response: {e}")
-        
+
         chat = db.query(Chat).filter(Chat.id == chat_id).first()
-        paciente = db.query(Paciente).filter(Paciente.id == chat.paciente_id).first() if chat else None
-        
-        paciente_nome = paciente.nome if paciente else "the patient"
-        paciente_idade = f"{paciente.idade} years old" if paciente else "age not informed"
-        paciente_diabetes = paciente.diabetes_tipo if paciente else "diabetes type not informed"
-        
+        patient = db.query(Patient).filter(Patient.id == chat.patient_id).first() if chat else None
+
+        patient_name = patient.name if patient else "the patient"
+        patient_age = f"{patient.age} years old" if patient else "age not informed"
+        patient_diabetes = patient.diabetes_type if patient else "diabetes type not informed"
+
         return f"""
         Hello! I'm your wound analysis assistant.
 
         I am currently experiencing technical difficulties, but I can inform you that:
-        - **Patient:** {paciente_nome}
-        - **Age:** {paciente_idade} 
-        - **Diabetes:** {paciente_diabetes}
+        - **Patient:** {patient_name}
+        - **Age:** {patient_age}
+        - **Diabetes:** {patient_diabetes}
 
         **About your question:** "{user_message}"
 

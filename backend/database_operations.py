@@ -2,7 +2,7 @@ import os
 import hashlib
 from sqlalchemy.orm import Session
 from .database import get_db, SessionLocal
-from .models import Paciente, Chat, Image, ChatMessage, ReportPDF
+from .models import Patient, Chat, Image, ChatMessage, ReportPDF
 from .gemini_service import generate_chat_introduction
 from datetime import datetime
 
@@ -31,55 +31,55 @@ def get_celery_app():
 def save_image_to_bucket(image_data, filename):
     """Saves an image to the bucket and returns its hash and path"""
     image_hash = hashlib.sha256(image_data).hexdigest()
-    
+
     file_extension = os.path.splitext(filename)[1] if '.' in filename else '.jpg'
     new_filename = f"{image_hash}{file_extension}"
     file_path = f"bucket/images/{new_filename}"
-    
+
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "wb") as f:
         f.write(image_data)
-    
+
     return image_hash, file_path
 
-def create_paciente_with_chat(db: Session, paciente_data, images_data=[]):
+def create_patient_with_chat(db: Session, patient_data, images_data=[]):
     """Creates a patient and its associated chat"""
-    if paciente_data.get('documento'):
-        existing = db.query(Paciente).filter(Paciente.documento == paciente_data['documento']).first()
+    if patient_data.get('documento'):
+        existing = db.query(Patient).filter(Patient.document == patient_data['documento']).first()
         if existing:
-            raise ValueError(f"A patient with document {paciente_data['documento']} already exists")
-    
-    paciente = Paciente(
-        nome=paciente_data['nome'],
-        documento=paciente_data.get('documento'),
-        idade=paciente_data['idade'],
-        sexo=paciente_data['sexo'],
-        diabetes_tipo=paciente_data['diabetes_tipo'],
-        historico_medico=paciente_data.get('historico_medico', ''),
-        medicamentos=paciente_data.get('medicamentos', ''),
-        alergias=paciente_data.get('alergias', '')
+            raise ValueError(f"A patient with document {patient_data['documento']} already exists")
+
+    patient = Patient(
+        name=patient_data['nome'],
+        document=patient_data.get('documento'),
+        age=patient_data['idade'],
+        sex=patient_data['sexo'],
+        diabetes_type=patient_data['diabetes_tipo'],
+        medical_history=patient_data.get('historico_medico', ''),
+        medications=patient_data.get('medicamentos', ''),
+        allergies=patient_data.get('alergias', '')
     )
-    db.add(paciente)
+    db.add(patient)
     db.flush()
-    
+
     chat = Chat(
-        paciente_id=paciente.id,
-        titulo=f"Chat - {paciente.nome}"
+        patient_id=patient.id,
+        title=f"Chat - {patient.name}"
     )
     db.add(chat)
     db.flush()
-    
+
     try:
         introduction_message = generate_chat_introduction({
-            'nome': paciente.nome,
-            'idade': paciente.idade,
-            'sexo': paciente.sexo,
-            'diabetes_tipo': paciente.diabetes_tipo,
-            'historico_medico': paciente.historico_medico,
-            'medicamentos': paciente.medicamentos,
-            'alergias': paciente.alergias
+            'nome': patient.name,
+            'idade': patient.age,
+            'sexo': patient.sex,
+            'diabetes_tipo': patient.diabetes_type,
+            'historico_medico': patient.medical_history,
+            'medicamentos': patient.medications,
+            'alergias': patient.allergies
         })
-        
+
         chat_message = ChatMessage(
             chat_id=chat.id,
             content=introduction_message,
@@ -93,16 +93,16 @@ def create_paciente_with_chat(db: Session, paciente_data, images_data=[]):
         print(f"⚠️  Could not create introduction message: {e}")
         chat_message = ChatMessage(
             chat_id=chat.id,
-            content=f"Hello! I'm your pressure wound analysis assistant. Patient: {paciente.nome}, {paciente.idade} years old, Diabetes {paciente.diabetes_tipo}. I'm ready to analyze the wound images.",
+            content=f"Hello! I'm your pressure wound analysis assistant. Patient: {patient.name}, {patient.age} years old, Diabetes {patient.diabetes_type}. I'm ready to analyze the wound images.",
             is_user=False,
             message_type="text"
         )
         db.add(chat_message)
-    
+
     saved_images = []
     for img_data in images_data:
         image_hash, file_path = save_image_to_bucket(img_data['data'], img_data['filename'])
-        
+
         image = Image(
             chat_id=chat.id,
             image_path=file_path,
@@ -133,44 +133,44 @@ def create_paciente_with_chat(db: Session, paciente_data, images_data=[]):
     print(f"🎯 {len(saved_images)} tasks sent for processing")
 
     return {
-        "paciente": paciente,
+        "paciente": patient,
         "chat": chat,
         "images": saved_images
     }
 
 def search_pacientes(db: Session, search_term: str = ""):
     """Searches patients by name or document"""
-    query = db.query(Paciente)
-    
+    query = db.query(Patient)
+
     if search_term:
         query = query.filter(
-            (Paciente.nome.ilike(f"%{search_term}%")) | 
-            (Paciente.documento.ilike(f"%{search_term}%"))
+            (Patient.name.ilike(f"%{search_term}%")) |
+            (Patient.document.ilike(f"%{search_term}%"))
         )
-    
-    return query.order_by(Paciente.created_at.desc()).all()
+
+    return query.order_by(Patient.created_at.desc()).all()
 
 def get_paciente_by_documento(db: Session, documento: str):
     """Looks up a patient by document"""
-    return db.query(Paciente).filter(Paciente.documento == documento).first()
+    return db.query(Patient).filter(Patient.document == documento).first()
 
 def get_paciente_with_chat(db: Session, paciente_id: int):
     """Returns a patient with its chat and related information"""
     try:
-        paciente = db.query(Paciente).filter(Paciente.id == paciente_id).first()
-        if not paciente:
+        patient = db.query(Patient).filter(Patient.id == paciente_id).first()
+        if not patient:
             return None
-        
-        chat = db.query(Chat).filter(Chat.paciente_id == paciente_id).first()
+
+        chat = db.query(Chat).filter(Chat.patient_id == paciente_id).first()
         images = []
         report = None
-        
+
         if chat:
             images = db.query(Image).filter(Image.chat_id == chat.id).all()
-            report = db.query(ReportPDF).filter(ReportPDF.paciente_id == paciente_id).first()
-        
+            report = db.query(ReportPDF).filter(ReportPDF.patient_id == paciente_id).first()
+
         return {
-            "paciente": paciente,
+            "paciente": patient,
             "chat": chat,
             "images": images,
             "report": report
@@ -183,13 +183,13 @@ def get_chat_status(chat):
     """Returns the chat's processing status"""
     if not chat:
         return "No Chat"
-    
+
     images = chat.images
     if not images:
         return "No images"
-    
+
     processed = all(img.classification != "Pending" for img in images)
-    
+
     if processed:
         return "Processed"
     elif any(img.classification != "Pending" for img in images):
@@ -207,11 +207,11 @@ def add_images_to_chat(db: Session, chat_id: int, images_data: list):
         chat = db.query(Chat).filter(Chat.id == chat_id).first()
         if not chat:
             raise ValueError(f"Chat with ID {chat_id} not found")
-        
+
         saved_images = []
         for img_data in images_data:
             image_hash, file_path = save_image_to_bucket(img_data['data'], img_data['filename'])
-            
+
             image = Image(
                 chat_id=chat_id,
                 image_path=file_path,
@@ -221,9 +221,9 @@ def add_images_to_chat(db: Session, chat_id: int, images_data: list):
             )
             db.add(image)
             saved_images.append(image)
-        
+
         db.commit()
-        
+
         celery_app = get_celery_app()
         for img in saved_images:
             result = celery_app.send_task(
@@ -248,7 +248,7 @@ def generate_pdf_report(db: Session, paciente_id: int):
 
         from .models import ReportPDF
         report = ReportPDF(
-            paciente_id=paciente_id,
+            patient_id=paciente_id,
             file_path=pdf_path,
             generated_at=datetime.utcnow()
         )
@@ -265,7 +265,7 @@ def get_pdf_report(db: Session, paciente_id: int):
     """Looks up the patient's most recent PDF report"""
     from .models import ReportPDF
     report = db.query(ReportPDF).filter(
-        ReportPDF.paciente_id == paciente_id
+        ReportPDF.patient_id == paciente_id
     ).order_by(ReportPDF.generated_at.desc()).first()
-    
+
     return report

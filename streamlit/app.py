@@ -11,8 +11,8 @@ if '/app/backend' not in sys.path:
     sys.path.append('/app/backend')
 
 from backend.database_operations import (
-    create_paciente_with_chat, 
-    search_pacientes, 
+    create_patient_with_chat,
+    search_pacientes,
     get_paciente_with_chat,
     get_chat_status,
     get_db,
@@ -29,8 +29,8 @@ import pandas as pd
 import time
 
 from backend.database_operations import (
-    create_paciente_with_chat, 
-    search_pacientes, 
+    create_patient_with_chat,
+    search_pacientes,
     get_paciente_with_chat,
     get_chat_status,
     add_images_to_chat,
@@ -173,7 +173,7 @@ def show_patient_form():
                     raise Exception("No images uploaded. At least one image of the lesion is required.")
                 
                 db = next(get_db())
-                _ = create_paciente_with_chat(
+                _ = create_patient_with_chat(
                     db, 
                     {
                         'nome': nome,
@@ -202,73 +202,73 @@ def show_patient_form():
 def show_chat_view(patient_id):
     """Shows the chat view for a specific patient"""
     db = next(get_db())
-    paciente_data = get_paciente_with_chat(db, patient_id)
-    
-    if not paciente_data:
+    patient_data = get_paciente_with_chat(db, patient_id)
+
+    if not patient_data:
         st.error("Patient not found")
         return
-    
-    paciente = paciente_data['paciente']
-    chat = paciente_data['chat']
-    images = paciente_data['images']
+
+    patient = patient_data['paciente']
+    chat = patient_data['chat']
+    images = patient_data['images']
 
     with st.sidebar:
-        st.subheader(f"💬 Patient: {paciente.nome}")
+        st.subheader(f"💬 Patient: {patient.name}")
         if st.button("👈🏼 Back", width='stretch'):
             st.query_params.clear()
             st.rerun()
-        
+
         if st.button("🔄 Re-Classify All", type="primary", width='stretch'):
             classify_all_images_in_chat(db, chat.id)
             st.success("✅ All images were re-sent for classification!")
             time.sleep(3)
             st.rerun()
-        
+
         if st.button("📄 Generate Pre-Laud PDF", type="primary", width='stretch', use_container_width=True):
             with st.spinner("Generating PDF report..."):
                 try:
                     from backend.database_operations import generate_pdf_report
-                    pdf_path = generate_pdf_report(db, paciente.id)
-                    
+                    pdf_path = generate_pdf_report(db, patient.id)
+
                     with open(pdf_path, "rb") as pdf_file:
                         pdf_bytes = pdf_file.read()
-                    
+
                     st.success("✅ PDF report generated successfully!")
                     st.download_button(
                         label="📥 Download the Pre-Laud PDF",
                         data=pdf_bytes,
-                        file_name=f"pre_laudo_{paciente.nome}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        file_name=f"pre_laudo_{patient.name}_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
                         type="primary",
                         use_container_width=True
                     )
-                    
+
                 except Exception as e:
                     st.error(f"❌ Error generating PDF: {str(e)}")
-        
-            
+
+
         st.divider()
 
         with st.expander("👤 Patient Information", expanded=True):
             st.write("#### 📋 Personal Data")
             st.write(f"""
-                    - **Name:** {paciente.nome}
-                    - **Doc:** {paciente.documento if paciente.documento else "*Not informed*"}
-                    - **Age:** {paciente.idade} years old
-                    - **Sex:** {paciente.sexo}
-                    - **Diabetes:** {paciente.diabetes_tipo}
+                    - **Name:** {patient.name}
+                    - **Doc:** {patient.document if patient.document else "*Not informed*"}
+                    - **Age:** {patient.age} years old
+                    - **Sex:** {patient.sex}
+                    - **Diabetes:** {patient.diabetes_type}
                     """)
             st.write("#### 🗄️ Medical History")
-            if paciente.historico_medico:
-                st.write(f"{(paciente.historico_medico[:500]).strip()}..." if len(paciente.historico_medico) > 500 else paciente.historico_medico)
+            if patient.medical_history:
+                st.write(f"{(patient.medical_history[:500]).strip()}..." if len(patient.medical_history) > 500 else patient.medical_history)
             else:
                 st.write("*Not informed*")
 
             st.write("#### 💊 Medications and Allergies")
-            if paciente.medicamentos:
-                st.write(f"- **Medications:** {paciente.medicamentos}")
-            if paciente.alergias:
-                st.write(f"- **Allergies:** {paciente.alergias}")
+            if patient.medications:
+                st.write(f"- **Medications:** {patient.medications}")
+            if patient.allergies:
+                st.write(f"- **Allergies:** {patient.allergies}")
         
         with st.expander("📸 Wounds", expanded=False):
             new_uploaded_files = st.file_uploader(
@@ -426,21 +426,21 @@ def main():
                 
                 df_data = []
                 for p in pacientes:
-                    chat = db.query(Chat).filter(Chat.paciente_id == p.id).first()
+                    chat = db.query(Chat).filter(Chat.patient_id == p.id).first()
                     status = get_chat_status(chat)
 
                     df_data.append({
                         "id": p.id,
                         "acesso": f"/?patient_id={p.id}",
-                        "nome": p.nome,
-                        "documento": "••••••" + p.documento[-6:] if len(p.documento) > 6 else p.documento,
-                        "idade": p.idade,
-                        "sexo": p.sexo,
-                        "diabetes_tipo": p.diabetes_tipo,
+                        "nome": p.name,
+                        "documento": "••••••" + p.document[-6:] if len(p.document) > 6 else p.document,
+                        "idade": p.age,
+                        "sexo": p.sex,
+                        "diabetes_tipo": p.diabetes_type,
                         "status": status,
-                        "historico_medico": p.historico_medico if len(p.historico_medico) <= 80 else p.historico_medico[:80-1].rstrip() + "…",
-                        "medicamentos": p.medicamentos if len(p.medicamentos) <= 80 else p.medicamentos[:80-1].rstrip() + "…",
-                        "alergias": p.alergias if len(p.alergias) <= 80 else p.alergias[:80-1].rstrip() + "…",
+                        "historico_medico": p.medical_history if len(p.medical_history) <= 80 else p.medical_history[:80-1].rstrip() + "…",
+                        "medicamentos": p.medications if len(p.medications) <= 80 else p.medications[:80-1].rstrip() + "…",
+                        "alergias": p.allergies if len(p.allergies) <= 80 else p.allergies[:80-1].rstrip() + "…",
                         "created_at": p.created_at,
                     })
                 

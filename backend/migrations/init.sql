@@ -1,21 +1,21 @@
-CREATE TABLE IF NOT EXISTS pacientes (
+CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL,
-    idade INTEGER,
-    sexo VARCHAR(1),
-    diabetes_tipo VARCHAR(50),
-    historico_medico TEXT,
-    documento VARCHAR(100),
-    medicamentos TEXT,
-    alergias TEXT,
+    name VARCHAR(100) NOT NULL,
+    age INTEGER,
+    sex VARCHAR(1),
+    diabetes_type VARCHAR(50),
+    medical_history TEXT,
+    document VARCHAR(100),
+    medications TEXT,
+    allergies TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS chats (
     id SERIAL PRIMARY KEY,
-    paciente_id INTEGER REFERENCES pacientes(id),
-    titulo VARCHAR(200) DEFAULT 'Chat about wounds',
+    patient_id INTEGER REFERENCES patients(id),
+    title VARCHAR(200) DEFAULT 'Chat about wounds',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -41,14 +41,14 @@ CREATE TABLE IF NOT EXISTS images (
 
 CREATE TABLE IF NOT EXISTS report_pdfs (
     id SERIAL PRIMARY KEY,
-    paciente_id INTEGER REFERENCES pacientes(id),
+    patient_id INTEGER REFERENCES patients(id),
     file_path VARCHAR(500) NOT NULL,
     report_content TEXT,
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento); 
-CREATE INDEX IF NOT EXISTS idx_chats_paciente_id ON chats(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_patients_document ON patients(document);
+CREATE INDEX IF NOT EXISTS idx_chats_patient_id ON chats(patient_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_chat_id ON chat_messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_images_chat_id ON images(chat_id);
-CREATE INDEX IF NOT EXISTS idx_report_pdfs_paciente_id ON report_pdfs(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_report_pdfs_patient_id ON report_pdfs(patient_id);

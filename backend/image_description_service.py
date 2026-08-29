@@ -81,7 +81,7 @@ def describe_image_with_analysis(image_path: str, dados_analise: dict):
         from google.genai import types
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-3.6-flash',
             contents=[
                 prompt,
                 types.Part.from_bytes(
