@@ -11,6 +11,9 @@ article/
 # Drive backup (checkpoints, dataset, notebook copy, large binaries)
 drive/
 
+# Regeneratable analysis artifacts
+scripts/calibration_output/
+
 # macOS
 .DS_Store
 .AppleDouble

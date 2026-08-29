@@ -90,9 +90,15 @@ def describe_image_with_analysis(image_path: str, dados_analise: dict):
                 )
             ]
         )
-        
-        return response.text.strip()
-        
+
+        descricao = response.text.strip()
+
+        aviso_p = dados_analise.get('risco_p', {}).get('Aviso_P', '')
+        if aviso_p:
+            descricao += f"\n\n**Model limitation disclosure:** {aviso_p}"
+
+        return descricao
+
     except Exception as e:
         print(f"❌ Error generating image description: {e}")
         aviso_p = dados_analise.get('risco_p', {}).get('Aviso_P', '')

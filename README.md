@@ -38,7 +38,7 @@ docker compose up --build
 
 Open **http://localhost:8501**.
 
-`docker compose` starts four services: `postgres`, `redis`, `streamlit` (web interface), and `worker` (Celery, consumes classification and report-generation tasks). The `backend/` package is mounted read-only into both `streamlit` and `worker`.
+`docker compose` starts four services: `postgres`, `redis`, `streamlit` (web interface), and `worker` (Celery, consumes classification and report-generation tasks). The `backend/` package is mounted as a shared volume into both `streamlit` and `worker`.
 
 ---
 
@@ -66,6 +66,8 @@ Evaluated on the held-out test partition (n = 234 images), reproduced from the r
 The fine-tuned model reaches 74.79% global accuracy (Wilson 95% CI [68.9%, 79.9%]), with class V (venous ulcer) recall at 91.94%. Class P (pressure ulcer) recall remains the system's main limitation at 23.53%, frequently confused with other lesion types; this figure is surfaced to clinicians as a permanent, always-visible disclosure in every generated pre-report rather than hidden behind the global accuracy number.
 
 [Example pre-report (PDF)](./assets/exemplo-pre_laudo.pdf)
+
+The calibration analysis reported in the paper (ECE, reliability diagram, Wilson 95% CI) is reproducible via `scripts/calibration_analysis.py`, run against the same checkpoint and test partition.
 
 ---
 
