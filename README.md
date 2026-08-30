@@ -4,11 +4,11 @@
 > *An AI-Enabled Digital Healthcare Workflow: Integrating Deep Learning and Large Language Models for Interpretable Wound Triage*
 > Ernane Ferreira Rocha Junior (UFRN), Ignacio Sanchez-Gendriz (CETENE/MCTI), Luiz Affonso Guedes (UFRN)
 
-Research code accompanying the paper above. An AI-enabled clinical decision support system (AI-CDSS) for chronic wound triage, combining computer vision with a large language model to classify skin lesions and generate editable, clinician-reviewed pre-reports.
+Research code accompanying the paper above. An AI-enabled clinical decision support system (AI-CDSS) for chronic wound triage, combining computer vision with a large language model to classify skin lesions and generate clinical pre-reports labeled for clinician verification.
 
 1. **Classification.** A VGG16 backbone, trained in two stages (transfer learning, then fine-tuning of block5), classifies wound images into six classes from visual data alone.
 2. **Narrative interpretability.** Gemini receives the predicted class, the full probability vector, and the model's documented per-class precision, recall, and F1-score, and produces a short natural-language pre-report.
-3. **Human review.** Every pre-report is presented as an editable draft; a clinician must review and approve it before it becomes part of the patient record.
+3. **Human review.** Every pre-report is explicitly labeled as a preliminary, AI-generated draft that must be independently verified by a clinician before any use in patient care; the prototype does not implement a software approval gate.
 
 The system runs as an asynchronous, containerized pipeline: a Streamlit interface, a Celery worker for classification and PDF generation, PostgreSQL for relational storage, and Redis as the task broker. It originated as a project for the UFRN graduate course PPGEEC2328 (Special Topics in Embedded and Distributed Processing).
 
