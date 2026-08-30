@@ -173,6 +173,8 @@ def classificar_imagem_individual(self, image_id):
                 try:
                     print(f"📝 Generating technical description for image {img.id}...")
                     descricao_tecnica = describe_image_with_analysis(image_path, resultado)
+                    aviso_p = resultado.get('risco_p', {}).get('Aviso_P', '')
+                    disclosure = f"\n\n**Model limitation disclosure:** {aviso_p}" if aviso_p else ""
 
                     mensagem_chat = ChatMessage(
                         chat_id=img.chat_id,
@@ -181,7 +183,7 @@ Image classified as {resultado['classe_traduzida']} with a probability of {resul
 
 @@IMAGE:{os.path.basename(image_path).split('.')[0]}@@
 
-{descricao_tecnica}
+{descricao_tecnica}{disclosure}
 """,
                         is_user=False,
                         message_type="analysis"
@@ -191,6 +193,8 @@ Image classified as {resultado['classe_traduzida']} with a probability of {resul
 
                 except Exception as desc_error:
                     print(f"⚠️  Error generating technical description: {desc_error}")
+                    aviso_p = resultado.get('risco_p', {}).get('Aviso_P', '')
+                    disclosure = f"\n\n**Model limitation disclosure:** {aviso_p}" if aviso_p else ""
                     mensagem_chat = ChatMessage(
                         chat_id=img.chat_id,
                         content=f"""
@@ -198,13 +202,13 @@ Image classified as {resultado['classe_traduzida']} with a probability of {resul
 
 @@IMAGE:{os.path.basename(image_path).split('.')[0]}@@
 
-*Technical analysis not available at this time.*
+*Technical analysis not available at this time.*{disclosure}
                         """,
                         is_user=False,
                         message_type="analysis"
                     )
                     db.add(mensagem_chat)
-                
+
                 db.commit()
                 
                 return {
