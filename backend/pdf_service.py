@@ -95,58 +95,64 @@ def extract_probabilities_from_analysis(db: Session, image_hash: str, chat_id: i
         print(f"❌ Error extracting probabilities: {e}")
         return {}
 
-def get_formal_analysis(image_path: str, classification_data: dict) -> str:
+def get_formal_analysis(image_path: str, classification_data: dict, max_retries: int = 2) -> str:
     """
     Uses Gemini to generate a formal analysis for the PDF
     """
-    try:
-        client = get_gemini_client()
-        
-        with open(image_path, "rb") as f:
-            image_data = f.read()
-        
-        classe_predita = classification_data.get('classe_predita', 'Desconhecida')
-        classe_traduzida = classification_data.get('classe_traduzida', 'Desconhecida')
-        confianca = classification_data.get('confianca_predita_percentual', 'N/A')
-        probabilidades = classification_data.get('probabilidades_completas', {})
-        
-        prompt = f"""
-        You are a medical expert creating a formal clinical report for documentation.
+    import time
 
-        CLASSIFICATION DATA:
-        - Predicted Class: {classe_predita} ({classe_traduzida})
-        - Model Confidence: {confianca}
-        - Probabilities: {probabilidades}
+    classe_predita = classification_data.get('classe_predita', 'Desconhecida')
+    classe_traduzida = classification_data.get('classe_traduzida', 'Desconhecida')
+    confianca = classification_data.get('confianca_predita_percentual', 'N/A')
+    probabilidades = classification_data.get('probabilidades_completas', {})
 
-        Create a formal and technical description for inclusion in a PDF medical report. The description should:
+    prompt = f"""
+    You are a medical expert creating a formal clinical report for documentation.
 
-        1. Be concise (maximum 150 words)
-        2. Use formal medical language
-        3. Describe relevant visual characteristics
-        4. Mention the level of confidence in the classification
-        5. Include considerations about differential diagnoses based on probabilities
-        6. Maintain a professional and objective tone
+    CLASSIFICATION DATA:
+    - Predicted Class: {classe_predita} ({classe_traduzida})
+    - Model Confidence: {confianca}
+    - Probabilities: {probabilidades}
 
-        Format the response in short paragraphs, without markers. Do not use markdown, only plain text.
-        """
-        
-        from google.genai import types
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=[
-                prompt,
-                types.Part.from_bytes(
-                    data=image_data,
-                    mime_type='image/jpeg'
-                )
-            ]
-        )
-        
-        return response.text.strip()
-        
-    except Exception as e:
-        print(f"❌ Error generating formal analysis: {e}")
-        return "Formal analysis not available at this time."
+    Create a formal and technical description for inclusion in a PDF medical report. The description should:
+
+    1. Be concise (maximum 150 words)
+    2. Use formal medical language
+    3. Describe relevant visual characteristics
+    4. Mention the level of confidence in the classification
+    5. Include considerations about differential diagnoses based on probabilities
+    6. Maintain a professional and objective tone
+
+    Format the response in short paragraphs, without markers. Do not use markdown, only plain text.
+    """
+
+    for attempt in range(max_retries + 1):
+        try:
+            client = get_gemini_client()
+
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+
+            from google.genai import types
+            response = client.models.generate_content(
+                model='gemini-3.6-flash',
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(
+                        data=image_data,
+                        mime_type='image/jpeg'
+                    )
+                ]
+            )
+
+            return response.text.strip()
+
+        except Exception as e:
+            print(f"❌ Error generating formal analysis (attempt {attempt + 1}/{max_retries + 1}): {e}")
+            if attempt < max_retries:
+                time.sleep(2 * (attempt + 1))
+
+    return "Formal analysis not available at this time."
 
 def create_metrics_table() -> Table:
     """Creates a table with the model's metrics"""
