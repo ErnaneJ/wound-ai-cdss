@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS images (
     filename VARCHAR(200),
     description TEXT,
     classification VARCHAR(100),
+    model_version VARCHAR(200),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

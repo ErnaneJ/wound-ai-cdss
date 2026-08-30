@@ -92,6 +92,7 @@ def classificar_imagem(image_path: str) -> dict:
         
         dados_analise = {
             "status": "sucesso",
+            "model_version": os.path.basename(MODELO_H5_PATH),
             "classe_predita": classe_predita,
             "confianca_predita_percentual": f"{confianca_predita*100:.2f}%",
             "classe_traduzida": traduzir_classe(classe_predita),

@@ -56,6 +56,7 @@ class Image(Base):
     filename = Column(String(200))
     description = Column(Text)
     classification = Column(String(100))
+    model_version = Column(String(200))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     chat = relationship("Chat", back_populates="images", lazy="select")

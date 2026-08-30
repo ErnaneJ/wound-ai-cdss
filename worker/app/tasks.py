@@ -168,7 +168,8 @@ def classificar_imagem_individual(self, image_id):
             if resultado.get('status') == 'sucesso':
                 img.classification = resultado['classe_predita']
                 img.description = f"{resultado['classe_traduzida']} ({resultado['confianca_predita_percentual']})"
-                
+                img.model_version = resultado.get('model_version')
+
                 try:
                     print(f"📝 Generating technical description for image {img.id}...")
                     descricao_tecnica = describe_image_with_analysis(image_path, resultado)
