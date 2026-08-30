@@ -124,12 +124,6 @@ def create_patient_with_chat(db: Session, patient_data, images_data=[]):
         )
         print(f"✅ Task sent for image {img.id}: {result.id}")
 
-    celery_app.send_task(
-        'app.tasks.inicializar_chat',
-        args=[img.id],
-        queue='celery'
-    )
-
     print(f"🎯 {len(saved_images)} tasks sent for processing")
 
     return {
